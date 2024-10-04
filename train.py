@@ -9,6 +9,14 @@ from networks.vision_transformer import SwinUnet as ViT_seg
 from trainer import trainer_synapse
 from config import get_config
 
+"""
+argparse.ArgumentParser()オブジェクトにより引数の情報を保持する
+add_argument()により引数の情報を追加することができる
+--(追加したい引数名)
+type：追加する引数のデータ型
+default：初期値、指定がなかった場合に使用される値
+help：メッセージ（その引数の意味を記載することが多い） --helpにより表示することができる
+"""
 parser = argparse.ArgumentParser()
 parser.add_argument('--root_path', type=str,
                     default='../data/Synapse/train_npz', help='root dir for data')
