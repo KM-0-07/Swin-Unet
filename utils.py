@@ -86,6 +86,7 @@ import copy
 #     # CRF後のラベルを取得
 #     return np.argmax(Q, axis=0).reshape((h, w))
 
+# 変更（num_classes: 2 -> 9）
 def apply_crf(image, prediction, num_classes=2, spatial_sigma=3, bilateral_sigma_color=10, bilateral_sigma_spatial=3):
     """
     グレースケール画像に対するCRFの適用。
