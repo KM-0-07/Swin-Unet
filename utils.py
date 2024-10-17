@@ -98,8 +98,8 @@ def apply_crf(image, prediction, num_classes=2, spatial_sigma=3, bilateral_sigma
     """
     
     # CRFモデルの作成
-    # 変更（image.shape -> image.shape[2:]）
-    h, w = image.shape[2:]
+    # 変更（image.shape -> image.shape[2:] -> image.shape[1:]） image.shape：(スライス数, 高さ, 幅)
+    h, w = image.shape[1:]
     d = dcrf.DenseCRF2D(w, h, num_classes)
     
     # ユニアリティ項を設定（セグメンテーション予測から作成）
