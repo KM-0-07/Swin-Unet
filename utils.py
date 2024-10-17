@@ -58,6 +58,34 @@ def calculate_metric_percase(pred, gt):
         return 0, 0
 
 
+# 追加（apply_crf関数までの記述）
+import pydensecrf.densecrf as dcrf
+from pydensecrf.utils import unary_from_softmax, create_pairwise_bilateral
+import copy
+def apply_crf(image, segmentation_prob, sxy_gaussian=3, compat_gaussian=3, sxy_bilateral=80, srgb_bilateral=13, compat_bilateral=10):
+    # 画像の形状を取得
+    h, w = image.shape[:2]
+
+    # DenseCRFの初期化
+    d = dcrf.DenseCRF2D(w, h, segmentation_prob.shape[0])
+
+    # Unaryエネルギーを設定
+    unary = unary_from_softmax(segmentation_prob)
+    d.setUnaryEnergy(unary)
+
+    # Gaussianのペアワイズタームを追加
+    d.addPairwiseGaussian(sxy=sxy_gaussian, compat=compat_gaussian)
+
+    # Bilateralのペアワイズタームを追加（色を考慮）
+    d.addPairwiseBilateral(sxy=sxy_bilateral, srgb=srgb_bilateral, rgbim=image, compat=compat_bilateral)
+
+    # CRFを実行
+    Q = d.inference(5)  # 反復回数を設定
+
+    # CRF後のラベルを取得
+    return np.argmax(Q, axis=0).reshape((h, w))
+
+
 def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_save_path=None, case=None, z_spacing=1):
     image, label = image.squeeze(0).cpu().detach().numpy(), label.squeeze(0).cpu().detach().numpy()
     if len(image.shape) == 3:
@@ -85,6 +113,14 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
         with torch.no_grad():
             out = torch.argmax(torch.softmax(net(input), dim=1), dim=1).squeeze(0)
             prediction = out.cpu().detach().numpy()
+
+    # 追加（predictionまでの記述）
+    # --- CRF適用前のpredictionを保存 ---
+    original_prediction = copy.deepcopy(prediction)
+
+    # --- CRFの適用 ---
+    prediction = apply_crf(image, prediction)
+    
     metric_list = []
     for i in range(1, classes):
         metric_list.append(calculate_metric_percase(prediction == i, label == i))
@@ -99,4 +135,5 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
         sitk.WriteImage(prd_itk, test_save_path + '/'+case + "_pred.nii.gz")
         sitk.WriteImage(img_itk, test_save_path + '/'+ case + "_img.nii.gz")
         sitk.WriteImage(lab_itk, test_save_path + '/'+ case + "_gt.nii.gz")
-    return metric_list
+    # 変更（metric_list -> metric_list, original_prediction, prediction）
+    return metric_list, original_prediction, prediction
