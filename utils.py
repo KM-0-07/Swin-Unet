@@ -59,31 +59,73 @@ def calculate_metric_percase(pred, gt):
 
 
 # 追加（apply_crf関数までの記述）
-import pydensecrf.densecrf as dcrf
-from pydensecrf.utils import unary_from_softmax, create_pairwise_bilateral
-import copy
-def apply_crf(image, segmentation_prob, sxy_gaussian=3, compat_gaussian=3, sxy_bilateral=80, srgb_bilateral=13, compat_bilateral=10):
-    # 画像の形状を取得
-    h, w = image.shape[:2]
+# import pydensecrf.densecrf as dcrf
+# from pydensecrf.utils import unary_from_softmax, create_pairwise_bilateral
+# import copy
+# def apply_crf(image, segmentation_prob, sxy_gaussian=3, compat_gaussian=3, sxy_bilateral=80, srgb_bilateral=13, compat_bilateral=10):
+#     # 画像の形状を取得
+#     h, w = image.shape[:2]
 
-    # DenseCRFの初期化
-    d = dcrf.DenseCRF2D(w, h, segmentation_prob.shape[0])
+#     # DenseCRFの初期化
+#     d = dcrf.DenseCRF2D(w, h, segmentation_prob.shape[0])
 
-    # Unaryエネルギーを設定
-    unary = unary_from_softmax(segmentation_prob)
+#     # Unaryエネルギーを設定
+#     unary = unary_from_softmax(segmentation_prob)
+#     d.setUnaryEnergy(unary)
+
+#     # Gaussianのペアワイズタームを追加
+#     d.addPairwiseGaussian(sxy=sxy_gaussian, compat=compat_gaussian)
+
+#     # Bilateralのペアワイズタームを追加（色を考慮）
+#     d.addPairwiseBilateral(sxy=sxy_bilateral, srgb=srgb_bilateral, rgbim=image, compat=compat_bilateral)
+
+#     # CRFを実行
+#     Q = d.inference(5)  # 反復回数を設定
+
+#     # CRF後のラベルを取得
+#     return np.argmax(Q, axis=0).reshape((h, w))
+
+def apply_crf(image, prediction, num_classes=2, spatial_sigma=3, bilateral_sigma_color=10, bilateral_sigma_spatial=3):
+    """
+    グレースケール画像に対するCRFの適用。
+    
+    image: 元のグレースケール画像（2D配列）
+    prediction: セグメンテーション結果（2D配列）
+    num_classes: クラス数（デフォルトは2クラス）
+    spatial_sigma: ガウシアンフィルタの空間シグマ
+    bilateral_sigma_color: バイラテラルフィルタの色シグマ
+    bilateral_sigma_spatial: バイラテラルフィルタの空間シグマ
+    """
+    
+    # CRFモデルの作成
+    h, w = image.shape
+    d = dcrf.DenseCRF2D(w, h, num_classes)
+    
+    # ユニアリティ項を設定（セグメンテーション予測から作成）
+    labels = prediction.astype(np.int32)
+    unary = unary_from_labels(labels, num_classes, gt_prob=0.7)
+    unary = unary.reshape((num_classes, -1))  # (クラス数, ピクセル数)に変換
     d.setUnaryEnergy(unary)
+    
+    # ペアワイズガウシアン項を追加（スムージング効果）
+    gaussian_energy = create_pairwise_gaussian(sdims=(spatial_sigma, spatial_sigma), shape=image.shape)
+    d.addPairwiseEnergy(gaussian_energy, compat=3)
+    
+    # ペアワイズバイラテラル項を追加（強度値を考慮したスムージング）
+    bilateral_energy = create_pairwise_bilateral(sdims=(bilateral_sigma_spatial, bilateral_sigma_spatial),
+                                                 schan=(bilateral_sigma_color,),
+                                                 img=image,
+                                                 chdim=0)
+    d.addPairwiseEnergy(bilateral_energy, compat=10)
+    
+    # 反復回数を指定してCRFを実行
+    Q = d.inference(5)
+    
+    # 各ピクセルのクラスラベルを取得
+    result = np.argmax(Q, axis=0).reshape((h, w))
+    
+    return result
 
-    # Gaussianのペアワイズタームを追加
-    d.addPairwiseGaussian(sxy=sxy_gaussian, compat=compat_gaussian)
-
-    # Bilateralのペアワイズタームを追加（色を考慮）
-    d.addPairwiseBilateral(sxy=sxy_bilateral, srgb=srgb_bilateral, rgbim=image, compat=compat_bilateral)
-
-    # CRFを実行
-    Q = d.inference(5)  # 反復回数を設定
-
-    # CRF後のラベルを取得
-    return np.argmax(Q, axis=0).reshape((h, w))
 
 
 def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_save_path=None, case=None, z_spacing=1):
