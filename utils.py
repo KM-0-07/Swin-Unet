@@ -59,9 +59,9 @@ def calculate_metric_percase(pred, gt):
 
 
 # 追加（apply_crf関数までの記述）
-# import pydensecrf.densecrf as dcrf
-# from pydensecrf.utils import unary_from_softmax, create_pairwise_bilateral
-# import copy
+import pydensecrf.densecrf as dcrf
+from pydensecrf.utils import unary_from_softmax, create_pairwise_bilateral
+import copy
 # def apply_crf(image, segmentation_prob, sxy_gaussian=3, compat_gaussian=3, sxy_bilateral=80, srgb_bilateral=13, compat_bilateral=10):
 #     # 画像の形状を取得
 #     h, w = image.shape[:2]
