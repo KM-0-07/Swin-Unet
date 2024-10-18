@@ -236,8 +236,8 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
             metric = calculate_metric_percase(slice_prediction == i, slice_label == i)
             slice_metric_list.append(metric)
         
-    #     # 修正（インデントを一段階前へ、引数をnp.arrayへ変更）
-    #     metric_list.append(np.array(slice_metric_list))
+        # 修正（インデントを一段階前へ、引数をnp.arrayへ変更）
+        metric_list.append(np.array(slice_metric_list))
 
     # # 追加・修正・（一旦）削除
     # metric_list = np.concatenate(metric_list, axis=0)
