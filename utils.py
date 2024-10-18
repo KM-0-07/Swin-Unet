@@ -87,48 +87,95 @@ import copy
 #     return np.argmax(Q, axis=0).reshape((h, w))
 
 # 変更（num_classes: 2 -> 9）
-def apply_crf(image, prediction, num_classes=9, spatial_sigma=3, bilateral_sigma_color=10, bilateral_sigma_spatial=3):
-    """
-    グレースケール画像に対するCRFの適用。
+# def apply_crf(image, prediction, num_classes=9, spatial_sigma=3, bilateral_sigma_color=10, bilateral_sigma_spatial=3):
+#     """
+#     グレースケール画像に対するCRFの適用。
     
-    image: 元のグレースケール画像（2D配列）
-    prediction: セグメンテーション結果（2D配列）
-    num_classes: クラス数（デフォルトは2クラス）
-    spatial_sigma: ガウシアンフィルタの空間シグマ
-    bilateral_sigma_color: バイラテラルフィルタの色シグマ
-    bilateral_sigma_spatial: バイラテラルフィルタの空間シグマ
-    """
+#     image: 元のグレースケール画像（2D配列）
+#     prediction: セグメンテーション結果（2D配列）
+#     num_classes: クラス数（デフォルトは2クラス）
+#     spatial_sigma: ガウシアンフィルタの空間シグマ
+#     bilateral_sigma_color: バイラテラルフィルタの色シグマ
+#     bilateral_sigma_spatial: バイラテラルフィルタの空間シグマ
+#     """
     
-    # CRFモデルの作成
-    # 変更（image.shape -> image.shape[2:] -> image.shape[1:]） image.shape：(スライス数, 高さ, 幅)
-    h, w = image.shape[1:]
-    d = dcrf.DenseCRF2D(w, h, num_classes)
+#     # CRFモデルの作成
+#     # 変更（image.shape -> image.shape[2:] -> image.shape[1:]） image.shape：(スライス数, 高さ, 幅)
+#     h, w = image.shape[1:]
+#     d = dcrf.DenseCRF2D(w, h, num_classes)
     
-    # ユニアリティ項を設定（セグメンテーション予測から作成）
-    labels = prediction.astype(np.int32)
-    unary = unary_from_labels(labels, num_classes, gt_prob=0.7)
-    unary = unary.reshape((num_classes, -1))  # (クラス数, ピクセル数)に変換
-    d.setUnaryEnergy(unary)
-    
-    # ペアワイズガウシアン項を追加（スムージング効果）
-    gaussian_energy = create_pairwise_gaussian(sdims=(spatial_sigma, spatial_sigma), shape=image.shape)
-    d.addPairwiseEnergy(gaussian_energy, compat=3)
-    
-    # ペアワイズバイラテラル項を追加（強度値を考慮したスムージング）
-    bilateral_energy = create_pairwise_bilateral(sdims=(bilateral_sigma_spatial, bilateral_sigma_spatial),
-                                                 schan=(bilateral_sigma_color,),
-                                                 img=image,
-                                                 chdim=0)
-    d.addPairwiseEnergy(bilateral_energy, compat=10)
-    
-    # 反復回数を指定してCRFを実行
-    Q = d.inference(5)
-    
-    # 各ピクセルのクラスラベルを取得
-    result = np.argmax(Q, axis=0).reshape((h, w))
-    
-    return result
+#     # ユニアリティ項を設定（セグメンテーション予測から作成）
+#     labels = prediction.astype(np.int32)
 
+#     # 追加
+#     labels = np.clip(labels, 0, num_classes - 1)
+    
+#     unary = unary_from_labels(labels, num_classes, gt_prob=0.7)
+#     unary = unary.reshape((num_classes, -1))  # (クラス数, ピクセル数)に変換
+#     d.setUnaryEnergy(unary)
+    
+#     # ペアワイズガウシアン項を追加（スムージング効果）
+#     gaussian_energy = create_pairwise_gaussian(sdims=(spatial_sigma, spatial_sigma), shape=image.shape)
+#     d.addPairwiseEnergy(gaussian_energy, compat=3)
+    
+#     # ペアワイズバイラテラル項を追加（強度値を考慮したスムージング）
+#     bilateral_energy = create_pairwise_bilateral(sdims=(bilateral_sigma_spatial, bilateral_sigma_spatial),
+#                                                  schan=(bilateral_sigma_color,),
+#                                                  img=image,
+#                                                  chdim=0)
+#     d.addPairwiseEnergy(bilateral_energy, compat=10)
+    
+#     # 反復回数を指定してCRFを実行
+#     Q = d.inference(5)
+    
+#     # 各ピクセルのクラスラベルを取得
+#     result = np.argmax(Q, axis=0).reshape((h, w))
+    
+#     return result
+
+# 変更・追加
+def apply_crf(image, prediction, num_classes=9, spatial_sigma=3, bilateral_sigma_color=10, bilateral_sigma_spatial=3):
+    # スライスごとに処理
+    num_slices = image.shape[0]  # 画像のスライス数（148枚）
+    crf_results = np.zeros_like(prediction, dtype=np.int32)  # CRFの結果を格納する配列
+    
+    for i in range(num_slices):
+        # 各スライスの画像と予測を取得
+        slice_image = image[i]
+        slice_prediction = prediction[i]
+        
+        # 高さと幅を取得
+        h, w = slice_image.shape
+        d = dcrf.DenseCRF2D(w, h, num_classes)
+
+        # ユニアリティ項を設定（セグメンテーション予測から作成）
+        labels = slice_prediction.astype(np.int32)
+        labels = np.clip(labels, 0, num_classes - 1)  # ラベルがクラス数を超えないように調整
+        
+        # CRFのユニアリティ項を作成
+        unary = unary_from_labels(labels, num_classes, gt_prob=0.7)
+        unary = unary.reshape((num_classes, -1))  # (クラス数, ピクセル数)に変換
+        d.setUnaryEnergy(unary)
+
+        # ペアワイズガウシアン項を追加（スムージング効果）
+        gaussian_energy = create_pairwise_gaussian(sdims=(spatial_sigma, spatial_sigma), shape=(h, w))
+        d.addPairwiseEnergy(gaussian_energy, compat=3)
+
+        # ペアワイズバイラテラル項を追加（強度値を考慮したスムージング）
+        bilateral_energy = create_pairwise_bilateral(sdims=(bilateral_sigma_spatial, bilateral_sigma_spatial),
+                                                     schan=(bilateral_sigma_color,),
+                                                     img=slice_image[..., np.newaxis],  # (h, w, 1)に変換
+                                                     chdim=2)
+        d.addPairwiseEnergy(bilateral_energy, compat=10)
+
+        # 反復回数を指定してCRFを実行
+        Q = d.inference(5)
+
+        # 各ピクセルのクラスラベルを取得
+        result = np.argmax(Q, axis=0).reshape((h, w))
+        crf_results[i] = result
+
+    return crf_results
 
 
 def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_save_path=None, case=None, z_spacing=1):
@@ -166,10 +213,24 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
     # --- CRFの適用 ---
     prediction = apply_crf(image, prediction)
     
-    metric_list = []
-    for i in range(1, classes):
-        metric_list.append(calculate_metric_percase(prediction == i, label == i))
+    # metric_list = []
+    # for i in range(1, classes):
+    #     metric_list.append(calculate_metric_percase(prediction == i, label == i))
 
+    # ↑ を修正・追加
+    metric_list = []
+    # スライスごとにメトリクスを計算
+    for slice_index in range(prediction.shape[0]):
+        # 現在のスライスに対する予測とラベル
+        slice_prediction = prediction[slice_index]
+        slice_label = label[slice_index]
+        
+        # 各クラスに対してメトリクスを計算
+        for i in range(1, classes):
+            metric = calculate_metric_percase(slice_prediction == i, slice_label == i)
+            metric_list.append(metric)
+
+    
     if test_save_path is not None:
         img_itk = sitk.GetImageFromArray(image.astype(np.float32))
         prd_itk = sitk.GetImageFromArray(prediction.astype(np.float32))
