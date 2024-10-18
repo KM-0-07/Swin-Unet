@@ -216,31 +216,31 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
     # 確認
     print(prediction, prediction.shape)
     
-    # metric_list = []
-    # for i in range(1, classes):
-    #     metric_list.append(calculate_metric_percase(prediction == i, label == i))
-
-    # ↑ を修正・追加
     metric_list = []
-    # スライスごとにメトリクスを計算
-    for slice_index in range(prediction.shape[0]):
-        # 現在のスライスに対する予測とラベル
-        slice_prediction = prediction[slice_index]
-        slice_label = label[slice_index]
+    for i in range(1, classes):
+        metric_list.append(calculate_metric_percase(prediction == i, label == i))
 
-        # 追加
-        slice_metric_list = []
-        
-        # 各クラスに対してメトリクスを計算
-        for i in range(1, classes):
-            metric = calculate_metric_percase(slice_prediction == i, slice_label == i)
-            slice_metric_list.append(metric)
-        
-        # 修正（インデントを一段階前へ、引数をnp.arrayへ変更）
-        metric_list.append(np.array(slice_metric_list))
+    # # ↑ を修正・追加
+    # metric_list = []
+    # # スライスごとにメトリクスを計算
+    # for slice_index in range(prediction.shape[0]):
+    #     # 現在のスライスに対する予測とラベル
+    #     slice_prediction = prediction[slice_index]
+    #     slice_label = label[slice_index]
 
-    # # 追加・修正・（一旦）削除
-    # metric_list = np.concatenate(metric_list, axis=0)
+    #     # 追加
+    #     slice_metric_list = []
+        
+    #     # 各クラスに対してメトリクスを計算
+    #     for i in range(1, classes):
+    #         metric = calculate_metric_percase(slice_prediction == i, slice_label == i)
+    #         slice_metric_list.append(metric)
+        
+    #     # 修正（インデントを一段階前へ、引数をnp.arrayへ変更）
+    #     metric_list.append(np.array(slice_metric_list))
+
+    # # # 追加・修正・（一旦）削除
+    # # metric_list = np.concatenate(metric_list, axis=0)
     
     if test_save_path is not None:
         img_itk = sitk.GetImageFromArray(image.astype(np.float32))
