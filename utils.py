@@ -212,6 +212,9 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
 
     # --- CRFの適用 ---
     prediction = apply_crf(image, prediction)
+
+    # 確認
+    print(prediction, prediction.shape)
     
     # metric_list = []
     # for i in range(1, classes):
