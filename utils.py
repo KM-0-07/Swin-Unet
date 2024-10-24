@@ -55,7 +55,9 @@ class FocalLoss(nn.Module):
     def forward(self, inputs, targets, softmax=False):
         if softmax:
             inputs = torch.softmax(inputs, dim=1)
-        BCE_loss = nn.functional.binary_cross_entropy_with_logits(inputs, targets, reduction='none')
+        # 変更
+        # BCE_loss = nn.functional.binary_cross_entropy_with_logits(inputs, targets, reduction='none')
+        BCE_loss = nn.functional.binary_cross_entropy_with_logits(inputs, targets, reduction='mean')
         pt = torch.exp(-BCE_loss)
         focal_loss = self.alpha * (1 - pt) ** self.gamma * BCE_loss
         return focal_loss.mean()
