@@ -13,6 +13,11 @@ from torch.nn.modules.loss import CrossEntropyLoss
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from utils import DiceLoss
+
+# 損失関数の追加（FocalLoss, TverskyLoss）
+from utils import FocalLoss
+from utils import TverskyLoss
+
 from torchvision import transforms
 from utils import test_single_volume
 
@@ -39,7 +44,9 @@ def trainer_synapse(args, model, snapshot_path):
     if args.n_gpu > 1:
         model = nn.DataParallel(model)
     model.train()
-    ce_loss = CrossEntropyLoss()
+    # 変更（CrossEntropyLoss -> FocalLoss）
+    # ce_loss = CrossEntropyLoss()
+    ce_loss = FocalLoss()
     dice_loss = DiceLoss(num_classes)
     optimizer = optim.SGD(model.parameters(), lr=base_lr, momentum=0.9, weight_decay=0.0001)
     writer = SummaryWriter(snapshot_path + '/log')
@@ -54,7 +61,8 @@ def trainer_synapse(args, model, snapshot_path):
             image_batch, label_batch = sampled_batch['image'], sampled_batch['label']
             image_batch, label_batch = image_batch.cuda(), label_batch.cuda()
             outputs = model(image_batch)
-            loss_ce = ce_loss(outputs, label_batch[:].long())
+            # softmax=Trueを追加
+            loss_ce = ce_loss(outputs, label_batch[:].long(), softmax=True)
             loss_dice = dice_loss(outputs, label_batch, softmax=True)
             loss = 0.4 * loss_ce + 0.6 * loss_dice
             optimizer.zero_grad()
