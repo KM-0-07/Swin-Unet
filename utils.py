@@ -45,6 +45,40 @@ class DiceLoss(nn.Module):
         return loss / self.n_classes
 
 
+# 損失関数の追加（FocalLoss, TverskyLoss）
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=0.8, gamma=2):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+
+    def forward(self, inputs, targets, softmax=False):
+        if softmax:
+            inputs = torch.softmax(inputs, dim=1)
+        BCE_loss = nn.functional.binary_cross_entropy_with_logits(inputs, targets, reduction='none')
+        pt = torch.exp(-BCE_loss)
+        focal_loss = self.alpha * (1 - pt) ** self.gamma * BCE_loss
+        return focal_loss.mean()
+
+
+class TverskyLoss(nn.Module):
+    def __init__(self, alpha=0.5, beta=0.5, smooth=1e-6):
+        super(TverskyLoss, self).__init__()
+        self.alpha = alpha
+        self.beta = beta
+        self.smooth = smooth
+
+    def forward(self, inputs, targets, softmax=False):
+        if softmax:
+            inputs = torch.softmax(inputs, dim=1)
+        inputs = torch.sigmoid(inputs)
+        true_pos = (inputs * targets).sum()
+        false_neg = ((1 - inputs) * targets).sum()
+        false_pos = (inputs * (1 - targets)).sum()
+        tversky_index = (true_pos + self.smooth) / (true_pos + self.alpha * false_pos + self.beta * false_neg + self.smooth)
+        return 1 - tversky_index
+
+
 def calculate_metric_percase(pred, gt):
     pred[pred > 0] = 1
     gt[gt > 0] = 1
