@@ -44,6 +44,7 @@ def trainer_synapse(args, model, snapshot_path):
     if args.n_gpu > 1:
         model = nn.DataParallel(model)
     model.train()
+    
     # 変更（CrossEntropyLoss -> FocalLoss）
     # ce_loss = CrossEntropyLoss()
     ce_loss = FocalLoss()
@@ -61,8 +62,11 @@ def trainer_synapse(args, model, snapshot_path):
             image_batch, label_batch = sampled_batch['image'], sampled_batch['label']
             image_batch, label_batch = image_batch.cuda(), label_batch.cuda()
             outputs = model(image_batch)
+            
             # softmax=Trueを追加
-            loss_ce = ce_loss(outputs, label_batch[:].long(), softmax=True)
+            # 変更label_batch[:].long() -> label_one_hot
+            label_one_hot = F.one_hot(label_batch.long(), num_classes).permute(0, 3, 1, 2).float()
+            loss_ce = ce_loss(outputs, label_one_hot, softmax=True)
             loss_dice = dice_loss(outputs, label_batch, softmax=True)
             loss = 0.4 * loss_ce + 0.6 * loss_dice
             optimizer.zero_grad()
