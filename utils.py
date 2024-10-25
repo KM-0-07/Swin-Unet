@@ -62,23 +62,34 @@ class FocalLoss(nn.Module):
         focal_loss = self.alpha * (1 - pt) ** self.gamma * BCE_loss
         return focal_loss.mean()
 
-
+# 変更
 class TverskyLoss(nn.Module):
-    def __init__(self, alpha=0.5, beta=0.5, smooth=1e-6):
+    def __init__(self, alpha=0.5, beta=0.5, smooth=1e-5):
         super(TverskyLoss, self).__init__()
         self.alpha = alpha
         self.beta = beta
         self.smooth = smooth
 
     def forward(self, inputs, targets, softmax=False):
+        # ソフトマックスを適用して確率に変換
         if softmax:
             inputs = torch.softmax(inputs, dim=1)
-        inputs = torch.sigmoid(inputs)
-        true_pos = (inputs * targets).sum()
-        false_neg = ((1 - inputs) * targets).sum()
-        false_pos = (inputs * (1 - targets)).sum()
-        tversky_index = (true_pos + self.smooth) / (true_pos + self.alpha * false_pos + self.beta * false_neg + self.smooth)
-        return 1 - tversky_index
+
+        # One-Hotエンコーディングを使用してターゲットの形状を調整
+        # num_classes = inputs.size(1)
+        # targets_one_hot = F.one_hot(targets, num_classes).permute(0, 3, 1, 2).float()
+
+        # True Positive, False Negative, False Positiveを計算
+        true_pos = torch.sum(inputs * targets, dim=(0, 2, 3))
+        false_neg = torch.sum(targets * (1 - inputs), dim=(0, 2, 3))
+        false_pos = torch.sum(inputs * (1 - targets), dim=(0, 2, 3))
+
+        # Tversky Indexを計算
+        tversky_index = (true_pos + self.smooth) / (true_pos + self.alpha * false_neg + self.beta * false_pos + self.smooth)
+
+        # Tversky Lossを計算
+        loss = 1.0 - tversky_index.mean()
+        return loss
 
 
 def calculate_metric_percase(pred, gt):
