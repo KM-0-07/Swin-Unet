@@ -70,9 +70,9 @@ def trainer_synapse(args, model, snapshot_path):
             # 変更label_batch[:].long() -> label_one_hot
             label_one_hot = nn.functional.one_hot(label_batch.long(), num_classes).permute(0, 3, 1, 2).float()
             loss_ce = ce_loss(outputs, label_one_hot, softmax=True)
-            # 変更
+            # 変更(label_batch -> label_one_hot)
             # loss_dice = dice_loss(outputs, label_batch, softmax=True)
-            loss_dice = dice_loss(outputs, label_batch, softmax=True)
+            loss_dice = dice_loss(outputs, label_one_hot, softmax=True)
             loss = 0.4 * loss_ce + 0.6 * loss_dice
             optimizer.zero_grad()
             loss.backward()
