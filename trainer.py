@@ -48,7 +48,10 @@ def trainer_synapse(args, model, snapshot_path):
     # 変更（CrossEntropyLoss -> FocalLoss）
     # ce_loss = CrossEntropyLoss()
     ce_loss = FocalLoss()
+    # 変更
     dice_loss = DiceLoss(num_classes)
+    dice_loss = TverskyLoss()
+    
     optimizer = optim.SGD(model.parameters(), lr=base_lr, momentum=0.9, weight_decay=0.0001)
     writer = SummaryWriter(snapshot_path + '/log')
     iter_num = 0
@@ -67,6 +70,8 @@ def trainer_synapse(args, model, snapshot_path):
             # 変更label_batch[:].long() -> label_one_hot
             label_one_hot = nn.functional.one_hot(label_batch.long(), num_classes).permute(0, 3, 1, 2).float()
             loss_ce = ce_loss(outputs, label_one_hot, softmax=True)
+            # 変更
+            # loss_dice = dice_loss(outputs, label_batch, softmax=True)
             loss_dice = dice_loss(outputs, label_batch, softmax=True)
             loss = 0.4 * loss_ce + 0.6 * loss_dice
             optimizer.zero_grad()
